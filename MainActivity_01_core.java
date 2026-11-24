@@ -1,93 +1,97 @@
-// ===== MAZWD PART 01/05: CORE — v2.7.1 =====
-package com.mazwd.app;
+أهلاً بك، ومعك كل الحق في كل ملاحظة ذكرتها؛ نقدك في مكانه تماماً.
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
+دعني أوضح لك **الأسباب التقنية المباشرة** لما حدث في النسخة السابقة، وكيف تم حلها جذرياً الآن:
+
+1. **لماذا ظهر أنه تحديث لتطبيق `Mazwd` وفشل التثبيت؟**
+   - لأن المعرّف البرمجي (`Package Name`) بقي `com.mazwd.app`، وبما أن المستودع الجديد على GitHub أنشأ مفتاح توقيع جديد، رفض نظام أندرويد تثبيته فوق القديم.
+   - **الحل الجذري:** تم تغيير المعرّف البرمجي بالكامل إلى **`com.wasm.app`**، ليصبح تطبيق **«وسم»** مستقلاً 100% بتوقيعه وأيقونته وبياناته، ويثبّت بجانب تطبيقك القديم دون أي تعارض أو طلب حذف.
+
+2. **لماذا ظهرت الخطوط في الإعدادات بخط واحد؟**
+   - لسببين: الأول أن دالة تعميم خط التطبيق (`applyAppFont`) كانت تطغى على أسماء الخطوط وتجبرها على الظهور بالخط الحالي، والثاني أن بعض روابط GitHub المباشرة للخطوط تحولت في مستودع جوجل إلى خطوط متغيرة (Variable Fonts) فكان السكربت ينسخ خط `Tajawal` مكانها احتياطياً!
+   - **الحل الجذري:**
+     - في ملف البناء (`main.yml`)، تم استبدال التحميل العشوائي بسكربت Python يجلب **12 خطاً عربياً أصلياً ومختلفاً كلياً** مباشرة من خوادم Google Fonts (`gstatic.com`) ويتحقق من بصمة كل ملف `.ttf`.
+     - في شاشة الإعدادات، **تم إلغاء صندوق المعاينة نهائياً** (كما طلبت)، وعُرضت الخطوط الـ 12 مباشرة داخل شبكة أنيقة في الإعدادات بحيث **يُكتب اسم كل خط بخطه الحقيقي نفسه** مع قفل خاص (`KEEP_OWN_FONT`) يمنع تغييره.
+
+3. **لماذا كانت شاشة الإعدادات تقفز للأعلى عند اختيار أي خيار؟**
+   - لأن دالة `showSettingsScreen()` كانت تعيد بناء الشاشة من نقطة الصفر (`ScrollY = 0`).
+   - **الحل الجذري:** تمت إضافة حفظ فوري لموضع التمرير (`savedSettingsScrollY`) واستعادته قبل رسم الإطار (`OnPreDrawListener`)، بحيث عندما تختار ثيماً أو خطاً أو تغير الحجم أو تفعّل أي زر **تبقى في مكانك تماماً دون أي قفزة**.
+
+4. **لماذا كانت الأزرار (مثل التكبير والتصغير) كبيرة والواجهة شبيهة بالقديمة؟**
+   - التزمتُ سابقاً بمقاسات الأزرار القديمة (`46dp` و`36dp`). الآن قمت بإعادة تصميم الواجهة بالكامل لتكون **واجهة فاخرة عصرية على طراز تطبيقات النخبة في iOS**:
+     - كبسولة التكبير والتصغير `[ ＋ | 100% | － ]` أصبحت دقيقة ومجوهراتية بارتفاع **`26dp` فقط** وخط **`10.5sp`**.
+     - أزرار شريط الأدوات والتنقل أصبحت رشيقة وانسيابية (`30dp` – `38dp`).
+     - الشاشة الرئيسية صُممت بهوية فاخرة (بطاقة صدارة ملكية مع شريط إحصائيات زجاجي مدمج، فلاتر سريعة `[ الكل | 📌 المثبتة | 🕒 الأحدث | 🔤 أبجدياً ]`، وبطاقات ملاحظات تعرض مقتطفاً حياً من سطرين من داخل الملاحظة مع شريط جانبي مذهّب للملاحظات المثبتة).
+
+---
+
+### طريقة التحديث في مستودعك (6 ملفات):
+استبدل محتوى الملفات الخمسة في جذر المستودع + ملف `.github/workflows/main.yml`:
+
+---
+
+### 1. الملف الأول: `MainActivity_01_core.java`
+*(يحتوي على المعرّف الجديد `com.wasm.app`، نظام الثيمات الفاخرة، محرك الـ 12 خطاً مع حماية خط كل عنصر `KEEP_OWN_FONT`، وحفظ مواضع التمرير)*
+
+```java
+package com.wasm.app;
+
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
-import android.content.res.Configuration;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
-import android.graphics.drawable.RippleDrawable;
-import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
 import android.provider.DocumentsContract;
-import android.provider.OpenableColumns;
 import android.text.Editable;
-import android.text.InputFilter;
 import android.text.InputType;
-import android.text.Layout;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.StaticLayout;
-import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
-import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.OverScroller;
 import android.widget.PopupWindow;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -95,21 +99,18 @@ import android.widget.Toast;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -125,517 +126,557 @@ import java.util.zip.ZipOutputStream;
 
 public class MainActivity extends Activity {
 
-    // ===== ثوابت الهوية التجارية (قابلة للتعديل الفوري مستقبلاً) =====
+    // =========================================================================
+    // 1. BRANDING & APP CONSTANTS (WASM LUXURY EDITION)
+    // =========================================================================
     public static final String BRAND_NAME = "وسم";
-    public static final String DEFAULT_HERO_TITLE = "وَسم — مفكرة النخبة";
-    public static final String DEFAULT_HERO_SUBTITLE = "مساحتك الفاخرة للتدوين وحفظ الأفكار";
-    public static final String APP_VERSION_NAME = "v2.7.1";
-
-    // ===== ثوابت التخزين والخزنة الآمنة =====
-    public static final String PREFS_NAME = "mazwd_notepad_prefs";
+    public static final String BRAND_BADGE_TEXT = "✦  وَسْـم  •  WASM";
+    public static final String DEFAULT_HERO_TITLE = "وَسْـم — ديوان الأفكار";
+    public static final String DEFAULT_HERO_SUBTITLE = "مساحتك الخاصة للتدوين الفاخر وحفظ النصوص بأعلى درجات الأمان";
     public static final String VAULT_FOLDER_NAME = "خزنة_النسخ_الآمنة";
-    public static final String SAFE_BACKUP_MARKER = "__نسخة_آمنة_";
-    public static final int REQ_OPEN_FOLDER = 1001;
-    public static final int REQ_CREATE_ZIP = 1002;
-    public static final long AUTO_SAVE_DELAY_MS = 600L;
+    public static final String BACKUP_SEPARATOR = "__نسخة_آمنة_";
 
-    // ===== الأدوات الـ 12 الافتراضية للتحرير =====
-    public static final String[] DEFAULT_TOOLBAR_TOOLS = new String[]{
+    public static final String PREFS_NAME = "wasm_luxury_prefs_v3";
+    public static final String KEY_FOLDER_URI = "folder_uri";
+    public static final String KEY_DARK_MODE = "dark_mode";
+    public static final String KEY_THEME_INDEX = "theme_index";
+    public static final String KEY_FONT_INDEX = "font_index";
+    public static final String KEY_BASE_FONT_SIZE = "base_font_size";
+    public static final String KEY_DOC_ZOOM_PERCENT = "doc_zoom_percent";
+    public static final String KEY_LINE_SPACING = "line_spacing";
+    public static final String KEY_PINNED_FILES = "pinned_files";
+    public static final String KEY_TOOLBAR_ORDER = "toolbar_order";
+    public static final String KEY_TOOLBAR_HIDDEN = "toolbar_hidden";
+    public static final String KEY_TOOLBAR_ICON_ONLY = "toolbar_icon_only";
+    public static final String KEY_SIGNATURE_TEXT = "signature_text";
+    public static final String KEY_INDENT_PARAGRAPHS = "indent_paragraphs";
+    public static final String KEY_HAPTIC_ENABLED = "haptic_enabled";
+    public static final String KEY_HERO_TITLE = "hero_title";
+    public static final String KEY_HERO_SUBTITLE = "hero_subtitle";
+    public static final String KEY_HOME_FILTER_MODE = "home_filter_mode";
+
+    public static final int REQ_PICK_FOLDER = 1001;
+    public static final int REQ_CREATE_ZIP_BACKUP = 1002;
+
+    public static final int SCREEN_HOME = 0;
+    public static final int SCREEN_DOCUMENT = 1;
+    public static final int SCREEN_SETTINGS = 2;
+
+    public static final int FILTER_ALL = 0;
+    public static final int FILTER_PINNED = 1;
+    public static final int FILTER_RECENT = 2;
+    public static final int FILTER_ALPHA = 3;
+
+    public static final String TAG_KEEP_OWN_FONT = "KEEP_OWN_FONT";
+
+    // =========================================================================
+    // 2. LUXURY GCC THEMES & 12 AUTHENTIC ARABIC FONTS
+    // =========================================================================
+    public static final String[] THEME_NAMES = new String[]{
+            "الزمرد الملكي",
+            "العنابي القطري",
+            "العود المعتّق",
+            "الرمال الذهبية",
+            "لؤلؤ الخليج",
+            "الخزامى النجدي",
+            "الديوان الرسمي",
+            "الكربون الفاخر"
+    };
+
+    // [0]=Primary, [1]=DeepGradient, [2]=SoftTintLight, [3]=GoldChampagneAccent
+    public static final int[][] THEME_PALETTES = new int[][]{
+            {0xFF065F46, 0xFF032E22, 0xFFECFDF5, 0xFFD4AF37}, // 0: Royal Saudi Emerald
+            {0xFF7F1D32, 0xFF420917, 0xFFFFF1F2, 0xFFE2B86B}, // 1: Doha Velvet Maroon
+            {0xFF6B3E1E, 0xFF361D0A, 0xFFFEF9EE, 0xFFD9A05B}, // 2: Aged Arabian Oud
+            {0xFF8C3B1A, 0xFF431807, 0xFFFFF7ED, 0xFFE0A96D}, // 3: Diriyah Golden Sand
+            {0xFF0E4D5C, 0xFF06252E, 0xFFF0FDFA, 0xFF7DD3C8}, // 4: Gulf Pearl Teal
+            {0xFF4C1D95, 0xFF230B4E, 0xFFF5F3FF, 0xFFC4B5FD}, // 5: Najd Royal Lavender
+            {0xFF283548, 0xFF0F172A, 0xFFF1F5F9, 0xFF94A3B8}, // 6: Official Diwan Slate
+            {0xFF1C1C21, 0xFF09090C, 0xFFF4F4F6, 0xFFD4AF37}  // 7: Obsidian & Champagne Gold
+    };
+
+    public static final String[] FONT_NAMES = new String[]{
+            "خط تجوال — العصري المتوازن",
+            "خط المراعي — الخليجي الأنيق",
+            "خط القاهرة — الهندسي الحديث",
+            "الخط الأميري — المصحفي الفاخر",
+            "خط شهرزاد — التراثي الأصيل",
+            "خط ريدكس برو — الحكومي الواضح",
+            "خط نوتو سانس — الرقمي المريح",
+            "خط نوتو نسخ — الأدبي الكلاسيكي",
+            "خط آي بي إم — التقني الفخم",
+            "خط عارف رقعة — الديواني الأصيل",
+            "خط ريم كوفي — الكوفي المزخرف",
+            "خط تشانجا — العناوين العريضة"
+    };
+
+    public static final String[] FONT_SHORT_NAMES = new String[]{
+            "تجوال (Tajawal)",
+            "المراعي (Almarai)",
+            "القاهرة (Cairo)",
+            "الأميري (Amiri)",
+            "شهرزاد (Scheherazade)",
+            "ريدكس برو (Readex)",
+            "نوتو سانس (Noto Sans)",
+            "نوتو نسخ (Noto Naskh)",
+            "آي بي إم (IBM Plex)",
+            "عارف رقعة (Aref Ruqaa)",
+            "ريم كوفي (Reem Kufi)",
+            "تشانجا (Changa)"
+    };
+
+    public static final String[] DEFAULT_TOOLS = new String[]{
             "undo", "redo", "copy", "paste", "select_all", "auto_format",
             "signature", "cut", "select_up", "select_down", "datetime", "find_replace"
     };
 
-    // ===== الثيمات الخليجية والملكية الـ 8 =====
-    public static final String[] THEME_NAMES = new String[]{
-            "الأخضر الزمردي (السعودي الملكي)",
-            "العنابي الفاخر (القطري الأصيل)",
-            "البني التراثي (العود الخليجي)",
-            "الطيني العربي (الأصالة التراثية)",
-            "البترولي العصري (لؤلؤ الخليج)",
-            "البنفسجي الأنيق (الليلك الملكي)",
-            "الرمادي الرسمي (الديوان الرسمي)",
-            "الأسود الماسي (الفخامة المطلقة)"
-    };
-
-    // [0]=Primary, [1]=Dark, [2]=LightAccent
-    public static final int[][] THEME_PALETTES = new int[][]{
-            {0xFF065F46, 0xFF064E3B, 0xFFD1FAE5}, // 0: الأخضر الزمردي
-            {0xFF881337, 0xFF4C0519, 0xFFFFE4E6}, // 1: العنابي الفاخر
-            {0xFF78350F, 0xFF451A03, 0xFFFEF3C7}, // 2: البني التراثي
-            {0xFF9A3412, 0xFF431407, 0xFFFFEDD5}, // 3: الطيني العربي
-            {0xFF0F4C5C, 0xFF082F3A, 0xFFCCFBF1}, // 4: البترولي العصري
-            {0xFF5B21B6, 0xFF2E1065, 0xFFEDE9FE}, // 5: البنفسجي الأنيق
-            {0xFF334155, 0xFF0F172A, 0xFFE2E8F0}, // 6: الرمادي الرسمي
-            {0xFF18181B, 0xFF09090B, 0xFFF4F4F5}  // 7: الأسود الماسي
-    };
-
-    // ===== الخطوط الـ 12 المدمجة =====
-    public static final String[] FONT_NAMES = new String[]{
-            "Sans — خط واضح وعصري (افتراضي)",
-            "تجوال — خط حديث وأنيق للمقالات",
-            "المراعي — خط عربي كلاسيكي مريح ومتوازن",
-            "شهرزاد عريض — خط نسخي تراثي أصيل",
-            "ريدكس برو — خط عصري فائق الوضوح",
-            "نوتو سانس — خط جوجل القياسي المتوازن",
-            "نوتو نسخ — خط نسخي مطبعي للأبحاث",
-            "آي بي إم بليكس — خط تقني حديث وأنيق",
-            "عارف رقعة — خط الرقعة العربي",
-            "ريم كوفي — خط كوفي حديث ومميز",
-            "Serif — خط إنجليزي رسمي ومريح",
-            "Cursive — خط فني مائل"
-    };
-
-    // ===== المتغيرات والحقول المشتركة =====
+    // =========================================================================
+    // 3. STATE FIELDS & UI REFERENCES
+    // =========================================================================
     public SharedPreferences prefs;
-    public Handler mainHandler = new Handler(Looper.getMainLooper());
-    public Runnable autoSaveRunnable;
-    public Uri treeUri;
-    public FrameLayout rootContainer;
+    public final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    // حالات الشاشات
-    public boolean isInDocumentScreen = false;
-    public boolean isInSettingsScreen = false;
-    public boolean isEditMode = false;
-
-    // متغيرات الشاشة الرئيسية
-    public ScrollView homeScrollView;
-    public LinearLayout homeFilesContainer;
-    public EditText homeSearchInput;
-    public String currentHomeSearchQuery = "";
-    public int savedHomeScrollY = 0;
-    public List<NoteItem> cachedNotesList = new ArrayList<>();
-
-    // متغيرات شاشة المستند
-    public Uri currentNoteUri;
-    public String currentNoteName = "";
-    public String currentNoteContent = "";
-    public boolean isDirty = false;
-    public float prevScrollFraction = 0f;
+    public Uri currentFolderUri = null;
+    public boolean isDarkMode = false;
+    public int currentThemeIndex = 0;
+    public int currentFontIndex = 0;
+    public float baseFontSizeSp = 17f;
     public int docZoomPercent = 100;
-    public ScrollView readScrollView;
-    public ScrollView editScrollView;
+    public float lineSpacingMultiplier = 1.40f;
+    public boolean toolbarIconOnly = false;
+    public String signatureText = "";
+    public boolean indentParagraphsOnFormat = false;
+    public boolean hapticEnabled = true;
+    public String heroTitleText = DEFAULT_HERO_TITLE;
+    public String heroSubtitleText = DEFAULT_HERO_SUBTITLE;
+    public int homeFilterMode = FILTER_ALL;
+
+    public final Set<String> pinnedFileNames = new HashSet<>();
+    public final List<String> toolbarOrderList = new ArrayList<>();
+    public final Set<String> toolbarHiddenSet = new HashSet<>();
+
+    // Dynamic Theme Colors
+    public int colorPrimary;
+    public int colorPrimaryDark;
+    public int colorAccentLight;
+    public int colorGoldAccent;
+    public int colorBackground;
+    public int colorCardSurface;
+    public int colorSubtleSurface;
+    public int colorTextPrimary;
+    public int colorTextSecondary;
+    public int colorTextMuted;
+    public int colorBorder;
+    public int colorDivider;
+    public final int colorDanger = 0xFFDC2626;
+    public final int colorSuccess = 0xFF059669;
+
+    // Navigation & Scroll State
+    public int currentScreen = SCREEN_HOME;
+    public int savedHomeScrollY = 0;
+    public int savedSettingsScrollY = 0;
+    public String currentSearchQuery = "";
+
+    // Home UI References
+    public ScrollView homeScrollView;
+    public LinearLayout filesContainerLayout;
+    public EditText homeSearchEditText;
+    public View homeSearchClearBtn;
+    public TextView homeFilesCountBadge;
+    public final List<NoteFileItem> cachedFileItems = new ArrayList<>();
+
+    // Settings UI References
+    public ScrollView settingsScrollView;
+
+    // Document Screen State
+    public NoteFileItem currentOpenNote = null;
+    public boolean isEditMode = false;
+    public boolean isDocumentDirty = false;
+    public String lastSavedContent = "";
+    public float prevScrollFraction = 0f;
+
+    public ScrollView docScrollView;
     public TextView readTextView;
-    public EditText noteEditText;
+    public EditText editNoteEditText;
     public TextView docTitleTextView;
-    public TextView zoomPercentBtn;
-    public TextView statsBarTextView;
-    public LinearLayout docTopBar;
-    public LinearLayout docBottomArea;
-    public View fastScrollTrack;
+    public TextView zoomPercentTextView;
+    public TextView bottomStatsTextView;
     public View fastScrollThumb;
     public TextView fastScrollBubble;
-    public PopupWindow jumpPopupWindow;
+    public boolean isFastScrollDragging = false;
 
-    // سجل التراجع والإعادة وأدوات التحرير
-    public ArrayList<String> undoStack = new ArrayList<>();
-    public ArrayList<String> redoStack = new ArrayList<>();
-    public boolean isInternalEditChange = false;
-    public List<String> activeToolbarTools = new ArrayList<>();
-    public Set<String> disabledToolbarTools = new HashSet<>();
+    // Undo / Redo History
+    public final List<String> undoStack = new ArrayList<>();
+    public final List<String> redoStack = new ArrayList<>();
+    public boolean isInternalTextChange = false;
 
-    // إعدادات المظهر والتخصيص
-    public int currentThemeIndex = 0;
-    public boolean isDarkMode = false;
-    public int currentFontIndex = 1; // تجوال افتراضياً لأناقة العرض
-    public int baseFontSizeSp = 19;
-    public float lineSpacingMultiplier = 1.45f;
-    public boolean toolbarIconsOnly = false;
-    public boolean autoFormatIndent = true;
-    public boolean hapticEnabled = true;
-    public boolean autoHideBarsOnScroll = false;
-    public String userSignature = "";
-    public String customHeaderTitle = "";
-    public String customHeaderSubtitle = "";
-    public Set<String> pinnedFileNames = new HashSet<>();
+    // Font Cache
+    public static final Map<String, Typeface> FONT_CACHE = new HashMap<>();
 
-    // كاش الخطوط لتسريع الأداء (120fps)
-    private final Map<String, Typeface> typefaceCache = new HashMap<>();
+    // Debounced Auto-Save
+    public final Runnable debouncedSaveRunnable = new Runnable() {
+        @Override
+        public void run() {
+            saveCurrentNoteImmediatelyIfNeeded(false);
+        }
+    };
 
-    // ===== نماذج البيانات الداخلية =====
-    public static class NoteItem {
+    // Data Model for Note Files
+    public static class NoteFileItem {
         public Uri uri;
         public String fileName;
         public String displayName;
         public long lastModified;
-        public String content;
+        public long sizeBytes;
+        public String cachedContent;
         public boolean isPinned;
     }
 
-    public static class BackupItem {
-        public Uri uri;
-        public String fileName;
-        public String displayDate;
-        public long lastModified;
-    }
-
-    // ===== دورة حياة التطبيق (Lifecycle) =====
+    // =========================================================================
+    // 4. ACTIVITY LIFECYCLE
+    // =========================================================================
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        loadAllPreferences();
+        loadPreferences();
+        computeThemeColors();
+        configureSystemBars();
 
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        updateSystemBars();
-
-        rootContainer = new FrameLayout(this);
-        rootContainer.setLayoutParams(new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        rootContainer.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        rootContainer.setBackgroundColor(getScreenBgColor());
-        setContentView(rootContainer);
-
-        autoSaveRunnable = new Runnable() {
-            @Override
-            public void run() {
-                saveCurrentNoteImmediatelyIfNeeded();
-            }
-        };
-
+        if (hasValidFolderPermission()) {
+            performSilentSmartRestore();
+        }
         showHomeScreen();
     }
 
     @Override
     protected void onPause() {
-        saveCurrentNoteImmediatelyIfNeeded();
-        if (!isInDocumentScreen && !isInSettingsScreen && homeScrollView != null) {
-            savedHomeScrollY = homeScrollView.getScrollY();
-        }
         super.onPause();
+        if (currentScreen == SCREEN_HOME && homeScrollView != null) {
+            savedHomeScrollY = homeScrollView.getScrollY();
+        } else if (currentScreen == SCREEN_SETTINGS && settingsScrollView != null) {
+            savedSettingsScrollY = settingsScrollView.getScrollY();
+        } else if (currentScreen == SCREEN_DOCUMENT) {
+            saveCurrentNoteImmediatelyIfNeeded(true);
+        }
     }
 
     @Override
     protected void onStop() {
-        saveCurrentNoteImmediatelyIfNeeded();
         super.onStop();
+        if (currentScreen == SCREEN_DOCUMENT) {
+            saveCurrentNoteImmediatelyIfNeeded(true);
+        }
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus) {
-            saveCurrentNoteImmediatelyIfNeeded();
+        if (!hasFocus && currentScreen == SCREEN_DOCUMENT) {
+            saveCurrentNoteImmediatelyIfNeeded(false);
         }
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public void onBackPressed() {
-        if (jumpPopupWindow != null && jumpPopupWindow.isShowing()) {
-            jumpPopupWindow.dismiss();
-            return;
-        }
-        if (isInSettingsScreen) {
-            isInSettingsScreen = false;
+        if (currentScreen == SCREEN_DOCUMENT) {
+            saveCurrentNoteImmediatelyIfNeeded(true);
             showHomeScreen();
-            return;
-        }
-        if (isInDocumentScreen) {
-            saveCurrentNoteImmediatelyIfNeeded();
-            if (isEditMode) {
-                captureCurrentScrollFraction();
-                hideKeyboard();
-                isEditMode = false;
-                renderDocumentScreen();
-                return;
-            }
-            isInDocumentScreen = false;
-            currentNoteUri = null;
+        } else if (currentScreen == SCREEN_SETTINGS) {
+            savedSettingsScrollY = 0;
             showHomeScreen();
-            return;
+        } else {
+            super.onBackPressed();
         }
-        super.onBackPressed();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
-            return;
-        }
-        Uri returnedUri = data.getData();
-        if (requestCode == REQ_OPEN_FOLDER) {
-            try {
+        if (requestCode == REQ_PICK_FOLDER && resultCode == Activity.RESULT_OK && data != null) {
+            Uri treeUri = data.getData();
+            if (treeUri != null) {
                 final int takeFlags = data.getFlags()
                         & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                getContentResolver().takePersistableUriPermission(returnedUri, takeFlags);
-            } catch (Exception ignored) {
+                try {
+                    getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+                } catch (Exception ignored) {
+                }
+                currentFolderUri = treeUri;
+                prefs.edit().putString(KEY_FOLDER_URI, treeUri.toString()).apply();
+                ensureVaultNoMedia();
+                performSilentSmartRestore();
+                showToast("تم ربط مجلد الحفظ بنجاح ✓");
+                if (currentScreen == SCREEN_SETTINGS) {
+                    showSettingsScreen();
+                } else {
+                    showHomeScreen();
+                }
             }
-            treeUri = returnedUri;
-            prefs.edit().putString("tree_uri", treeUri.toString()).apply();
-            ensureVaultNoMedia();
-            showToast("تم ربط مجلد الملفات بنجاح");
-            showHomeScreen();
-        } else if (requestCode == REQ_CREATE_ZIP) {
-            performZipExportToUri(returnedUri);
+        } else if (requestCode == REQ_CREATE_ZIP_BACKUP && resultCode == Activity.RESULT_OK && data != null) {
+            Uri zipDestUri = data.getData();
+            if (zipDestUri != null) {
+                performZipExportToUri(zipDestUri);
+            }
         }
     }
 
-    // ===== تحميل وحفظ الإعدادات =====
-    public void loadAllPreferences() {
-        currentThemeIndex = prefs.getInt("theme_index", 0);
-        if (currentThemeIndex < 0 || currentThemeIndex >= THEME_PALETTES.length) {
-            currentThemeIndex = 0;
-        }
-        isDarkMode = prefs.getBoolean("dark_mode", false);
-        currentFontIndex = prefs.getInt("font_index", 1);
-        if (currentFontIndex < 0 || currentFontIndex >= FONT_NAMES.length) {
-            currentFontIndex = 0;
-        }
-        baseFontSizeSp = prefs.getInt("base_font_size_sp", 19);
-        lineSpacingMultiplier = prefs.getFloat("line_spacing_mult", 1.45f);
-        docZoomPercent = prefs.getInt("doc_zoom_percent", 100);
-        toolbarIconsOnly = prefs.getBoolean("toolbar_icons_only", false);
-        autoFormatIndent = prefs.getBoolean("auto_format_indent", true);
-        hapticEnabled = prefs.getBoolean("haptic_enabled", true);
-        autoHideBarsOnScroll = prefs.getBoolean("auto_hide_bars", false);
-        userSignature = prefs.getString("user_signature", "");
-        customHeaderTitle = prefs.getString("custom_header_title", DEFAULT_HERO_TITLE);
-        customHeaderSubtitle = prefs.getString("custom_header_subtitle", DEFAULT_HERO_SUBTITLE);
-
-        String uriStr = prefs.getString("tree_uri", null);
-        if (uriStr != null && !uriStr.isEmpty()) {
+    // =========================================================================
+    // 5. PREFERENCES & STATE PERSISTENCE
+    // =========================================================================
+    public void loadPreferences() {
+        String uriStr = prefs.getString(KEY_FOLDER_URI, null);
+        if (!TextUtils.isEmpty(uriStr)) {
             try {
-                treeUri = Uri.parse(uriStr);
+                currentFolderUri = Uri.parse(uriStr);
             } catch (Exception e) {
-                treeUri = null;
+                currentFolderUri = null;
             }
         }
+        isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false);
+        currentThemeIndex = clampInt(prefs.getInt(KEY_THEME_INDEX, 0), 0, THEME_PALETTES.length - 1);
+        currentFontIndex = clampInt(prefs.getInt(KEY_FONT_INDEX, 0), 0, FONT_NAMES.length - 1);
+        baseFontSizeSp = clampFloat(prefs.getFloat(KEY_BASE_FONT_SIZE, 17f), 12f, 30f);
+        docZoomPercent = clampInt(prefs.getInt(KEY_DOC_ZOOM_PERCENT, 100), 50, 250);
+        lineSpacingMultiplier = clampFloat(prefs.getFloat(KEY_LINE_SPACING, 1.40f), 1.0f, 2.2f);
+        toolbarIconOnly = prefs.getBoolean(KEY_TOOLBAR_ICON_ONLY, false);
+        signatureText = prefs.getString(KEY_SIGNATURE_TEXT, "");
+        indentParagraphsOnFormat = prefs.getBoolean(KEY_INDENT_PARAGRAPHS, false);
+        hapticEnabled = prefs.getBoolean(KEY_HAPTIC_ENABLED, true);
+        heroTitleText = prefs.getString(KEY_HERO_TITLE, DEFAULT_HERO_TITLE);
+        heroSubtitleText = prefs.getString(KEY_HERO_SUBTITLE, DEFAULT_HERO_SUBTITLE);
+        homeFilterMode = clampInt(prefs.getInt(KEY_HOME_FILTER_MODE, FILTER_ALL), 0, 3);
 
         pinnedFileNames.clear();
-        Set<String> savedPins = prefs.getStringSet("pinned_files", null);
+        Set<String> savedPins = prefs.getStringSet(KEY_PINNED_FILES, null);
         if (savedPins != null) {
             pinnedFileNames.addAll(savedPins);
         }
 
-        loadToolbarConfiguration();
+        toolbarOrderList.clear();
+        String savedOrder = prefs.getString(KEY_TOOLBAR_ORDER, null);
+        if (!TextUtils.isEmpty(savedOrder)) {
+            String[] parts = savedOrder.split(",");
+            Set<String> seen = new LinkedHashSet<>();
+            for (String p : parts) {
+                String trimmed = p.trim();
+                if (!trimmed.isEmpty() && isValidToolId(trimmed)) {
+                    seen.add(trimmed);
+                }
+            }
+            for (String def : DEFAULT_TOOLS) {
+                if (!seen.contains(def)) {
+                    seen.add(def);
+                }
+            }
+            toolbarOrderList.addAll(seen);
+        } else {
+            toolbarOrderList.addAll(Arrays.asList(DEFAULT_TOOLS));
+        }
+
+        toolbarHiddenSet.clear();
+        Set<String> savedHidden = prefs.getStringSet(KEY_TOOLBAR_HIDDEN, null);
+        if (savedHidden != null) {
+            toolbarHiddenSet.addAll(savedHidden);
+        }
+    }
+
+    public boolean isValidToolId(String id) {
+        for (String d : DEFAULT_TOOLS) {
+            if (d.equals(id)) return true;
+        }
+        return false;
     }
 
     public void savePinnedFiles() {
-        prefs.edit().putStringSet("pinned_files", new HashSet<>(pinnedFileNames)).apply();
-    }
-
-    public void loadToolbarConfiguration() {
-        activeToolbarTools.clear();
-        disabledToolbarTools.clear();
-
-        String orderCsv = prefs.getString("toolbar_order_csv", null);
-        if (orderCsv != null && !orderCsv.trim().isEmpty()) {
-            String[] parts = orderCsv.split(",");
-            for (String p : parts) {
-                String clean = p.trim();
-                if (!clean.isEmpty() && !activeToolbarTools.contains(clean)) {
-                    activeToolbarTools.add(clean);
-                }
-            }
-        }
-        for (String defTool : DEFAULT_TOOLBAR_TOOLS) {
-            if (!activeToolbarTools.contains(defTool)) {
-                activeToolbarTools.add(defTool);
-            }
-        }
-
-        Set<String> savedDisabled = prefs.getStringSet("toolbar_disabled_set", null);
-        if (savedDisabled != null) {
-            disabledToolbarTools.addAll(savedDisabled);
-        }
+        prefs.edit().putStringSet(KEY_PINNED_FILES, new HashSet<>(pinnedFileNames)).apply();
     }
 
     public void saveToolbarConfiguration() {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < activeToolbarTools.size(); i++) {
+        for (int i = 0; i < toolbarOrderList.size(); i++) {
             if (i > 0) sb.append(",");
-            sb.append(activeToolbarTools.get(i));
+            sb.append(toolbarOrderList.get(i));
         }
         prefs.edit()
-                .putString("toolbar_order_csv", sb.toString())
-                .putStringSet("toolbar_disabled_set", new HashSet<>(disabledToolbarTools))
+                .putString(KEY_TOOLBAR_ORDER, sb.toString())
+                .putStringSet(KEY_TOOLBAR_HIDDEN, new HashSet<>(toolbarHiddenSet))
                 .apply();
     }
 
-    // ===== محرك الثيمات والألوان الفاخرة =====
-    public int getThemePrimaryColor() {
-        return THEME_PALETTES[currentThemeIndex][0];
+    // =========================================================================
+    // 6. LUXURY THEME & COLOR ENGINE
+    // =========================================================================
+    public void computeThemeColors() {
+        int[] palette = THEME_PALETTES[clampInt(currentThemeIndex, 0, THEME_PALETTES.length - 1)];
+        colorPrimary = palette[0];
+        colorPrimaryDark = palette[1];
+        colorAccentLight = palette[2];
+        colorGoldAccent = palette[3];
+
+        if (isDarkMode) {
+            colorBackground = 0xFF0A0D12;
+            colorCardSurface = 0xFF131822;
+            colorSubtleSurface = 0xFF1C2331;
+            colorTextPrimary = 0xFFF8FAFC;
+            colorTextSecondary = 0xFFCBD5E1;
+            colorTextMuted = 0xFF64748B;
+            colorBorder = 0xFF242D3D;
+            colorDivider = 0xFF1B2230;
+        } else {
+            colorBackground = 0xFFF6F5F0; // Warm luxury alabaster paper
+            colorCardSurface = 0xFFFFFFFF;
+            colorSubtleSurface = 0xFFEFEDE6;
+            colorTextPrimary = 0xFF111827;
+            colorTextSecondary = 0xFF475569;
+            colorTextMuted = 0xFF94A3B8;
+            colorBorder = 0xFFE4E1D8;
+            colorDivider = 0xFFECEAE2;
+        }
     }
 
-    public int getThemeDarkColor() {
-        return THEME_PALETTES[currentThemeIndex][1];
-    }
-
-    public int getThemeLightAccentColor() {
-        return THEME_PALETTES[currentThemeIndex][2];
-    }
-
-    public int getScreenBgColor() {
-        return isDarkMode ? 0xFF0F172A : 0xFFF3F5F8;
-    }
-
-    public int getCardBgColor() {
-        return isDarkMode ? 0xFF1E293B : 0xFFFFFFFF;
-    }
-
-    public int getPaperBgColor() {
-        return isDarkMode ? 0xFF131C2E : 0xFFFFFDF9;
-    }
-
-    public int getPrimaryTextColor() {
-        return isDarkMode ? 0xFFF8FAFC : 0xFF0F172A;
-    }
-
-    public int getSecondaryTextColor() {
-        return isDarkMode ? 0xFF94A3B8 : 0xFF64748B;
-    }
-
-    public int getSubtleBorderColor() {
-        return isDarkMode ? 0xFF334155 : 0xFFE2E8F0;
-    }
-
-    public int getLuxuryAccentBorderColor() {
-        int primary = getThemePrimaryColor();
-        return (primary & 0x00FFFFFF) | (isDarkMode ? 0x44000000 : 0x22000000);
-    }
-
-    @SuppressWarnings("deprecation")
-    public void updateSystemBars() {
+    public void configureSystemBars() {
         try {
             Window window = getWindow();
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            window.setStatusBarColor(getThemeDarkColor());
-            window.setNavigationBarColor(isDarkMode ? 0xFF0F172A : 0xFFFFFFFF);
+            window.setStatusBarColor(isDarkMode ? 0xFF0A0D12 : colorPrimaryDark);
+            window.setNavigationBarColor(isDarkMode ? 0xFF0A0D12 : colorCardSurface);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                View decor = window.getDecorView();
-                int flags = decor.getSystemUiVisibility();
+                int flags = window.getDecorView().getSystemUiVisibility();
                 if (!isDarkMode) {
                     flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
                 } else {
                     flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
                 }
-                decor.setSystemUiVisibility(flags);
+                window.getDecorView().setSystemUiVisibility(flags);
             }
         } catch (Exception ignored) {
         }
     }
 
-    // ===== محرك الخطوط الـ 12 + معالجة نقاط حرف الياء (ي) =====
-    public Typeface getAppTypeface(boolean bold) {
-        String key = currentFontIndex + "_" + (bold ? "b" : "r");
-        if (typefaceCache.containsKey(key)) {
-            return typefaceCache.get(key);
+    // =========================================================================
+    // 7. 12-FONT LOADER WITH INDIVIDUAL FONT LOCK & YA (ي) PADDING FIX
+    // =========================================================================
+    public Typeface getFontTypeface(int fontIdx, boolean bold) {
+        int idx = clampInt(fontIdx, 0, FONT_NAMES.length - 1);
+        String cacheKey = idx + "_" + (bold ? "b" : "r");
+        if (FONT_CACHE.containsKey(cacheKey)) {
+            return FONT_CACHE.get(cacheKey);
         }
 
-        Typeface tf = null;
-        try {
-            switch (currentFontIndex) {
-                case 0:
-                    tf = Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL);
-                    break;
-                case 1:
-                    tf = loadFontResource(bold ? "tajawal_bold" : "tajawal_regular", bold);
-                    break;
-                case 2:
-                    tf = loadFontResource(bold ? "mazwd_arabic_bold" : "mazwd_arabic", bold);
-                    break;
-                case 3:
-                    tf = loadFontResource("scheherazade_bold", bold);
-                    break;
-                case 4:
-                    tf = loadFontResource(bold ? "readex_pro_bold" : "readex_pro", bold);
-                    break;
-                case 5:
-                    tf = loadFontResource(bold ? "noto_sans_arabic_bold" : "noto_sans_arabic", bold);
-                    break;
-                case 6:
-                    tf = loadFontResource(bold ? "noto_naskh_arabic_bold" : "noto_naskh_arabic", bold);
-                    break;
-                case 7:
-                    tf = loadFontResource(bold ? "ibm_plex_arabic_bold" : "ibm_plex_arabic", bold);
-                    break;
-                case 8:
-                    tf = loadFontResource(bold ? "aref_ruqaa_bold" : "aref_ruqaa", bold);
-                    break;
-                case 9:
-                    tf = loadFontResource(bold ? "reem_kufi_bold" : "reem_kufi", bold);
-                    break;
-                case 10:
-                    tf = Typeface.create("serif", bold ? Typeface.BOLD : Typeface.NORMAL);
-                    break;
-                case 11:
-                    tf = Typeface.create("cursive", bold ? Typeface.BOLD : Typeface.NORMAL);
-                    break;
-                default:
-                    tf = Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL);
-                    break;
-            }
-        } catch (Exception ignored) {
-        }
-
+        Typeface tf = loadRawFontTypeface(idx, bold);
         if (tf == null) {
-            tf = Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL);
+            tf = Typeface.create(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
         }
-        typefaceCache.put(key, tf);
+        FONT_CACHE.put(cacheKey, tf);
         return tf;
     }
 
-    private Typeface loadFontResource(String fontResName, boolean bold) {
+    public Typeface loadRawFontTypeface(int idx, boolean bold) {
         try {
-            int resId = getResources().getIdentifier(fontResName, "font", getPackageName());
+            String resName;
+            switch (idx) {
+                case 0: // Tajawal
+                    resName = bold ? "font_00_tajawal_bold" : "font_00_tajawal_regular";
+                    break;
+                case 1: // Almarai
+                    resName = bold ? "font_01_almarai_bold" : "font_01_almarai_regular";
+                    break;
+                case 2: // Cairo
+                    resName = bold ? "font_02_cairo_bold" : "font_02_cairo_regular";
+                    break;
+                case 3: // Amiri
+                    resName = bold ? "font_03_amiri_bold" : "font_03_amiri_regular";
+                    break;
+                case 4: // Scheherazade New
+                    resName = bold ? "font_04_scheherazade_bold" : "font_04_scheherazade_regular";
+                    break;
+                case 5: // Readex Pro
+                    resName = bold ? "font_05_readex_bold" : "font_05_readex_regular";
+                    break;
+                case 6: // Noto Sans Arabic
+                    resName = bold ? "font_06_notosans_bold" : "font_06_notosans_regular";
+                    break;
+                case 7: // Noto Naskh Arabic
+                    resName = bold ? "font_07_notonaskh_bold" : "font_07_notonaskh_regular";
+                    break;
+                case 8: // IBM Plex Sans Arabic
+                    resName = bold ? "font_08_ibmplex_bold" : "font_08_ibmplex_regular";
+                    break;
+                case 9: // Aref Ruqaa
+                    resName = bold ? "font_09_arefruqaa_bold" : "font_09_arefruqaa_regular";
+                    break;
+                case 10: // Reem Kufi
+                    resName = bold ? "font_10_reemkufi_bold" : "font_10_reemkufi_regular";
+                    break;
+                case 11: // Changa
+                default:
+                    resName = bold ? "font_11_changa_bold" : "font_11_changa_regular";
+                    break;
+            }
+            int resId = getResources().getIdentifier(resName, "font", getPackageName());
             if (resId != 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Typeface base = getResources().getFont(resId);
-                if (base != null) {
-                    return Typeface.create(base, bold ? Typeface.BOLD : Typeface.NORMAL);
-                }
+                return getResources().getFont(resId);
             }
         } catch (Exception ignored) {
         }
         return Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL);
     }
 
-    public void applyFontToViewTree(View view) {
+    public void applyAppFont(View view, boolean bold) {
         if (view == null) return;
-        if (view instanceof ViewGroup) {
+        // Respect views that intentionally display their own specific font (e.g. Font Cards in Settings)
+        if (TAG_KEEP_OWN_FONT.equals(view.getTag())) {
+            return;
+        }
+        if (view instanceof TextView) {
+            TextView tv = (TextView) view;
+            Typeface tf = getFontTypeface(currentFontIndex, bold);
+            tv.setTypeface(tf, bold ? Typeface.BOLD : Typeface.NORMAL);
+            // Fix Arabic letter Ya (ي) dots clipping on all buttons & labels
+            if (tv != readTextView && currentFontIndex != 3) {
+                tv.setIncludeFontPadding(true);
+            }
+        } else if (view instanceof ViewGroup) {
             ViewGroup vg = (ViewGroup) view;
             for (int i = 0; i < vg.getChildCount(); i++) {
-                applyFontToViewTree(vg.getChildAt(i));
-            }
-        } else if (view instanceof TextView) {
-            TextView tv = (TextView) view;
-            boolean isBold = tv.getTypeface() != null && tv.getTypeface().isBold();
-            tv.setTypeface(getAppTypeface(isBold));
-
-            // قاعدة الدقة البصرية: إظهار نقطتي حرف الياء (ي) كاملة في العناوين والتسميات
-            boolean isButtonOrBadge = (tv instanceof Button) || "badge".equals(tv.getTag()) || "btn".equals(tv.getTag());
-            boolean isDocReadView = (tv == readTextView);
-            if (!isButtonOrBadge && !isDocReadView && currentFontIndex != 3) {
-                tv.setIncludeFontPadding(true);
+                View child = vg.getChildAt(i);
+                if (TAG_KEEP_OWN_FONT.equals(child.getTag())) continue;
+                boolean childBold = bold;
+                if (child instanceof TextView) {
+                    Typeface existing = ((TextView) child).getTypeface();
+                    if (existing != null && existing.isBold()) {
+                        childBold = true;
+                    }
+                }
+                applyAppFont(child, childBold);
             }
         }
     }
 
-    // ===== محرك الفخامة البصرية والحركة الانسيابية (Luxury UI & Haptics) =====
+    // =========================================================================
+    // 8. UI HELPERS, FLUID SPRING PHYSICS & HAPTICS
+    // =========================================================================
     public int dp(float value) {
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, dm));
+        return Math.round(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()));
+    }
+
+    public int clampInt(int val, int min, int max) {
+        return Math.max(min, Math.min(max, val));
+    }
+
+    public float clampFloat(float val, float min, float max) {
+        return Math.max(min, Math.min(max, val));
     }
 
     public void performHaptic(View view) {
-        if (!hapticEnabled) return;
+        if (!hapticEnabled || view == null) return;
         try {
-            if (view != null) {
-                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            } else {
-                Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                if (vib != null && vib.hasVibrator()) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK));
-                    } else {
-                        vib.vibrate(VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE));
-                    }
-                }
-            }
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
         } catch (Exception ignored) {
         }
     }
@@ -647,19 +688,11 @@ public class MainActivity extends Activity {
             public boolean onTouch(View v, MotionEvent event) {
                 int action = event.getActionMasked();
                 if (action == MotionEvent.ACTION_DOWN) {
-                    v.animate()
-                            .scaleX(0.96f)
-                            .scaleY(0.96f)
-                            .setDuration(85)
-                            .setInterpolator(new DecelerateInterpolator())
-                            .start();
+                    v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(90)
+                            .setInterpolator(new DecelerateInterpolator()).start();
                 } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                    v.animate()
-                            .scaleX(1.0f)
-                            .scaleY(1.0f)
-                            .setDuration(190)
-                            .setInterpolator(new OvershootInterpolator(2.2f))
-                            .start();
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(190)
+                            .setInterpolator(new OvershootInterpolator(1.6f)).start();
                     if (action == MotionEvent.ACTION_UP) {
                         performHaptic(v);
                     }
@@ -669,281 +702,79 @@ public class MainActivity extends Activity {
         });
     }
 
-    public GradientDrawable createRoundedDrawable(int fillColor, int strokeColor, int strokeWidthDp, float radiusDp) {
+    public GradientDrawable createRoundedDrawable(int fillColor, int cornerRadiusDp, int strokeColor, int strokeWidthPx) {
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setColor(fillColor);
-        gd.setCornerRadius(dp(radiusDp));
-        if (strokeWidthDp > 0 && strokeColor != 0) {
-            gd.setStroke(dp(strokeWidthDp), strokeColor);
+        gd.setCornerRadius(dp(cornerRadiusDp));
+        if (strokeWidthPx > 0) {
+            gd.setStroke(strokeWidthPx, strokeColor);
         }
         return gd;
     }
 
-    public Drawable createInteractiveCardDrawable(int fillColor, int strokeColor, int strokeWidthDp, float radiusDp) {
-        GradientDrawable content = createRoundedDrawable(fillColor, strokeColor, strokeWidthDp, radiusDp);
-        GradientDrawable mask = createRoundedDrawable(0xFFFFFFFF, 0, 0, radiusDp);
-        int rippleColor = (getThemePrimaryColor() & 0x00FFFFFF) | 0x22000000;
-        return new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
-    }
+    public Drawable createVectorIcon(String iconType, int tintColor, int sizeDp) {
+        final int px = dp(sizeDp);
+        Bitmap bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(tintColor);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2f, px * 0.095f));
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
 
-    public Drawable createLuxuryButtonDrawable(int bgColor, float radiusDp) {
-        GradientDrawable base = new GradientDrawable();
-        base.setShape(GradientDrawable.RECTANGLE);
-        base.setColor(bgColor);
-        base.setCornerRadius(dp(radiusDp));
-        base.setStroke(dp(1), 0x22FFFFFF);
-
-        GradientDrawable mask = new GradientDrawable();
-        mask.setShape(GradientDrawable.RECTANGLE);
-        mask.setColor(0xFFFFFFFF);
-        mask.setCornerRadius(dp(radiusDp));
-
-        return new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), base, mask);
-    }
-
-    public GradientDrawable createHeroHeaderDrawable() {
-        GradientDrawable gd = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{getThemeDarkColor(), getThemePrimaryColor()}
-        );
-        float r = dp(24);
-        gd.setCornerRadii(new float[]{0, 0, 0, 0, r, r, r, r});
-        return gd;
+        if ("ic_jump_vertical".equals(iconType)) {
+            float cx = px * 0.5f;
+            canvas.drawLine(cx, px * 0.16f, cx, px * 0.45f, p);
+            canvas.drawLine(cx, px * 0.16f, px * 0.30f, px * 0.32f, p);
+            canvas.drawLine(cx, px * 0.16f, px * 0.70f, px * 0.32f, p);
+            canvas.drawLine(cx, px * 0.84f, cx, px * 0.55f, p);
+            canvas.drawLine(cx, px * 0.84f, px * 0.30f, px * 0.68f, p);
+            canvas.drawLine(cx, px * 0.84f, px * 0.70f, px * 0.68f, p);
+        }
+        return new android.graphics.drawable.BitmapDrawable(getResources(), bmp);
     }
 
     public void showToast(String message) {
-        try {
-            Toast toast = Toast.makeText(this, message, Toast.LENGTH_SHORT);
-            TextView tv = new TextView(this);
-            tv.setText(message);
-            tv.setTextColor(0xFFFFFFFF);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            tv.setTypeface(getAppTypeface(true));
-            tv.setGravity(Gravity.CENTER);
-            tv.setPadding(dp(20), dp(12), dp(20), dp(12));
-            tv.setBackground(createRoundedDrawable(isDarkMode ? 0xEE1E293B : getThemeDarkColor(), 0x33FFFFFF, 1, 22));
-            tv.setElevation(dp(6));
-            toast.setView(tv);
-            toast.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, dp(85));
-            toast.show();
-        } catch (Exception e) {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    public void hideKeyboard() {
-        try {
-            View v = getCurrentFocus();
-            if (v == null) v = rootContainer;
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null && v != null) {
-                imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    public void showKeyboard(final View target) {
-        if (target == null) return;
-        target.requestFocus();
-        target.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) {
-                        imm.showSoftInput(target, InputMethodManager.SHOW_IMPLICIT);
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-        }, 120);
-    }
-
-    // ===== النوافذ المنبثقة الفاخرة (بدون أي اقتصاص للأزرار) =====
-    public Dialog showStyledDialog(
-            String title,
-            String subtitle,
-            View customBody,
-            String positiveText,
-            int positiveBgColor,
-            final Runnable onPositive,
-            String negativeText,
-            final Runnable onNegative
-    ) {
-        final Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        card.setClipChildren(false);
-        card.setClipToPadding(false);
-        // حشوة سفلية إضافية +4dp لمنع اقتصاص الحواف السفلية للأزرار نهائياً
-        card.setPadding(dp(20), dp(20), dp(20), dp(22));
-        card.setBackground(createRoundedDrawable(getCardBgColor(), getSubtleBorderColor(), 1, 24));
-        card.setElevation(dp(10));
-
-        if (title != null && !title.isEmpty()) {
-            TextView titleTv = new TextView(this);
-            titleTv.setText(title);
-            titleTv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-            titleTv.setTypeface(getAppTypeface(true));
-            titleTv.setTextColor(getPrimaryTextColor());
-            titleTv.setGravity(Gravity.RIGHT);
-            titleTv.setIncludeFontPadding(true);
-            card.addView(titleTv);
-        }
-
-        if (subtitle != null && !subtitle.isEmpty()) {
-            TextView subTv = new TextView(this);
-            subTv.setText(subtitle);
-            subTv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            subTv.setTypeface(getAppTypeface(false));
-            subTv.setTextColor(getSecondaryTextColor());
-            subTv.setGravity(Gravity.RIGHT);
-            subTv.setIncludeFontPadding(true);
-            LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-            subLp.topMargin = dp(6);
-            card.addView(subTv, subLp);
-        }
-
-        if (customBody != null) {
-            LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-            bodyLp.topMargin = dp(14);
-            bodyLp.bottomMargin = dp(6);
-            card.addView(customBody, bodyLp);
-        }
-
-        if ((positiveText != null && !positiveText.isEmpty()) || (negativeText != null && !negativeText.isEmpty())) {
-            LinearLayout btnRow = new LinearLayout(this);
-            btnRow.setOrientation(LinearLayout.HORIZONTAL);
-            btnRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-            btnRow.setGravity(Gravity.CENTER_VERTICAL);
-            btnRow.setClipChildren(false);
-            btnRow.setClipToPadding(false);
-            btnRow.setPadding(dp(2), dp(6), dp(2), dp(4));
-
-            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-            rowLp.topMargin = dp(14);
-
-            if (positiveText != null && !positiveText.isEmpty()) {
-                Button posBtn = new Button(this);
-                posBtn.setTag("btn");
-                posBtn.setAllCaps(false);
-                posBtn.setText(positiveText);
-                posBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                posBtn.setTypeface(getAppTypeface(true));
-                posBtn.setTextColor(0xFFFFFFFF);
-                int btnColor = positiveBgColor != 0 ? positiveBgColor : getThemePrimaryColor();
-                posBtn.setBackground(createLuxuryButtonDrawable(btnColor, 14));
-                posBtn.setElevation(dp(2));
-                applySpringTouch(posBtn);
-
-                LinearLayout.LayoutParams posLp = new LinearLayout.LayoutParams(0, dp(46), 1f);
-                posLp.topMargin = dp(2);
-                posLp.bottomMargin = dp(4);
-                if (negativeText != null && !negativeText.isEmpty()) {
-                    posLp.leftMargin = dp(6);
-                }
-                posBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        dialog.dismiss();
-                        if (onPositive != null) onPositive.run();
-                    }
-                });
-                btnRow.addView(posBtn, posLp);
-            }
-
-            if (negativeText != null && !negativeText.isEmpty()) {
-                Button negBtn = new Button(this);
-                negBtn.setTag("btn");
-                negBtn.setAllCaps(false);
-                negBtn.setText(negativeText);
-                negBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                negBtn.setTypeface(getAppTypeface(true));
-                negBtn.setTextColor(getPrimaryTextColor());
-                int negBg = isDarkMode ? 0xFF334155 : 0xFFE2E8F0;
-                negBtn.setBackground(createInteractiveCardDrawable(negBg, getSubtleBorderColor(), 1, 14));
-                negBtn.setElevation(dp(1));
-                applySpringTouch(negBtn);
-
-                LinearLayout.LayoutParams negLp = new LinearLayout.LayoutParams(0, dp(46), 1f);
-                negLp.topMargin = dp(2);
-                negLp.bottomMargin = dp(4);
-                if (positiveText != null && !positiveText.isEmpty()) {
-                    negLp.rightMargin = dp(6);
-                }
-                negBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        dialog.dismiss();
-                        if (onNegative != null) onNegative.run();
-                    }
-                });
-                btnRow.addView(negBtn, negLp);
-            }
-
-            card.addView(btnRow, rowLp);
-        }
-
-        applyFontToViewTree(card);
+    public AlertDialog showStyledDialog(View contentView, boolean cancelable) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setCancelable(cancelable);
 
         FrameLayout wrapper = new FrameLayout(this);
+        wrapper.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         wrapper.setClipChildren(false);
         wrapper.setClipToPadding(false);
-        wrapper.setPadding(dp(16), dp(16), dp(16), dp(16));
-        wrapper.addView(card, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        wrapper.setPadding(dp(14), dp(14), dp(14), dp(14));
 
-        dialog.setContentView(wrapper);
+        if (contentView instanceof ViewGroup) {
+            ((ViewGroup) contentView).setClipChildren(false);
+            ((ViewGroup) contentView).setClipToPadding(false);
+        }
+        contentView.setBackground(createRoundedDrawable(colorCardSurface, 22, colorBorder, dp(1)));
+        applyAppFont(contentView, false);
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wrapper.addView(contentView, lp);
+
+        builder.setView(wrapper);
+        AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setLayout(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
         }
         dialog.show();
         return dialog;
     }
 
-    public EditText createStyledEditText(String initialText, String hintText) {
-        EditText et = new EditText(this);
-        et.setText(initialText != null ? initialText : "");
-        et.setHint(hintText != null ? hintText : "");
-        et.setHintTextColor(getSecondaryTextColor());
-        et.setTextColor(getPrimaryTextColor());
-        et.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        et.setTypeface(getAppTypeface(false));
-        et.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        et.setTextDirection(View.TEXT_DIRECTION_RTL);
-        et.setPadding(dp(14), dp(12), dp(14), dp(12));
-        int fieldBg = isDarkMode ? 0xFF0F172A : 0xFFF8FAFC;
-        et.setBackground(createRoundedDrawable(fieldBg, getSubtleBorderColor(), 1, 14));
-        if (initialText != null) {
-            et.setSelection(initialText.length());
-        }
-        return et;
-    }
-
-    // ===== محرك البحث العربي الذكي (findSmartMatchRanges) =====
-    public static boolean isIgnoredArabicMark(char c) {
-        // التشكيل الكامل (الحركات، التنوين، الشدة، السكون، الألف الخنجرية، علامات الوقف، التطويل/الكشيدة)
-        return (c >= '\u064B' && c <= '\u065F')
-                || c == '\u0670'
-                || c == '\u0640'
-                || (c >= '\u0610' && c <= '\u061A')
-                || (c >= '\u06D6' && c <= '\u06ED');
+    // =========================================================================
+    // 9. SMART ARABIC SEARCH ENGINE (TASHKEEL & HAMZA INSENSITIVE)
+    // =========================================================================
+    public static boolean isArabicDiacritic(char c) {
+        return (c >= '\u064B' && c <= '\u065F') || c == '\u0670' || c == '\u0640';
     }
 
     public static char normalizeArabicChar(char c) {
@@ -956,110 +787,75 @@ public class MainActivity extends Activity {
             case 'ة':
                 return 'ه';
             case 'ى':
+            case 'ئ':
                 return 'ي';
             case 'ؤ':
                 return 'و';
-            case 'ئ':
-                return 'ي';
             default:
                 return Character.toLowerCase(c);
         }
     }
 
-    public List<int[]> findSmartMatchRanges(String sourceText, String rawQuery) {
+    public static String normalizeArabicSimple(String input) {
+        if (input == null) return "";
+        StringBuilder sb = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (!isArabicDiacritic(c)) {
+                sb.append(normalizeArabicChar(c));
+            }
+        }
+        return sb.toString();
+    }
+
+    public static List<int[]> findSmartMatchRanges(String rawText, String rawQuery) {
         List<int[]> ranges = new ArrayList<>();
-        if (sourceText == null || sourceText.isEmpty() || rawQuery == null || rawQuery.isEmpty()) {
-            return ranges;
-        }
+        if (TextUtils.isEmpty(rawText) || TextUtils.isEmpty(rawQuery)) return ranges;
 
-        // تطبيع عبارة البحث
-        StringBuilder normQuerySb = new StringBuilder();
-        for (int i = 0; i < rawQuery.length(); i++) {
-            char c = rawQuery.charAt(i);
-            if (!isIgnoredArabicMark(c)) {
-                normQuerySb.append(normalizeArabicChar(c));
+        String normQuery = normalizeArabicSimple(rawQuery.trim());
+        if (normQuery.isEmpty()) return ranges;
+
+        StringBuilder normText = new StringBuilder(rawText.length());
+        int[] normToRawIndex = new int[rawText.length() + 1];
+        int normIdx = 0;
+
+        for (int rawIdx = 0; rawIdx < rawText.length(); rawIdx++) {
+            char c = rawText.charAt(rawIdx);
+            if (!isArabicDiacritic(c)) {
+                normToRawIndex[normIdx] = rawIdx;
+                normText.append(normalizeArabicChar(c));
+                normIdx++;
             }
         }
-        String normQuery = normQuerySb.toString().trim();
-        if (normQuery.isEmpty()) {
-            return ranges;
-        }
+        normToRawIndex[normIdx] = rawText.length();
 
-        // تطبيع النص الأصلي مع الاحتفاظ بخريطة المواقع الحقيقية
-        StringBuilder normTextSb = new StringBuilder(sourceText.length());
-        int[] indexMap = new int[sourceText.length()];
-        int normLen = 0;
-
-        for (int i = 0; i < sourceText.length(); i++) {
-            char c = sourceText.charAt(i);
-            if (!isIgnoredArabicMark(c)) {
-                normTextSb.append(normalizeArabicChar(c));
-                indexMap[normLen] = i;
-                normLen++;
-            }
-        }
-
-        String normText = normTextSb.toString();
-        int qLen = normQuery.length();
+        String haystack = normText.toString();
         int searchFrom = 0;
-
-        while (searchFrom <= normLen - qLen) {
-            int foundIdx = normText.indexOf(normQuery, searchFrom);
-            if (foundIdx < 0) break;
-
-            int origStart = indexMap[foundIdx];
-            int origEnd = indexMap[foundIdx + qLen - 1] + 1;
-
-            // تضمين أي حركات تشكيل تابعة للحرف الأخير من الكلمة المطابقة
-            while (origEnd < sourceText.length() && isIgnoredArabicMark(sourceText.charAt(origEnd))) {
-                origEnd++;
+        while (searchFrom <= haystack.length() - normQuery.length()) {
+            int found = haystack.indexOf(normQuery, searchFrom);
+            if (found < 0) break;
+            int rawStart = normToRawIndex[found];
+            int rawEnd = normToRawIndex[found + normQuery.length() - 1] + 1;
+            while (rawEnd < rawText.length() && isArabicDiacritic(rawText.charAt(rawEnd))) {
+                rawEnd++;
             }
-
-            ranges.add(new int[]{origStart, origEnd});
-            searchFrom = foundIdx + qLen;
+            ranges.add(new int[]{rawStart, rawEnd});
+            searchFrom = found + Math.max(1, normQuery.length());
         }
-
         return ranges;
     }
 
-    public SpannableStringBuilder buildHighlightedSpannable(String text, String query) {
-        SpannableStringBuilder ssb = new SpannableStringBuilder(text != null ? text : "");
-        if (text == null || text.isEmpty() || query == null || query.trim().isEmpty()) {
-            return ssb;
-        }
+    public SpannableString buildHighlightedSpannable(String text, String query) {
+        SpannableString span = new SpannableString(text == null ? "" : text);
+        if (TextUtils.isEmpty(text) || TextUtils.isEmpty(query)) return span;
         List<int[]> matches = findSmartMatchRanges(text, query);
         for (int[] range : matches) {
-            int start = Math.max(0, Math.min(range[0], ssb.length()));
-            int end = Math.max(start, Math.min(range[1], ssb.length()));
+            int start = Math.max(0, Math.min(text.length(), range[0]));
+            int end = Math.max(start, Math.min(text.length(), range[1]));
             if (end > start) {
-                ssb.setSpan(
-                        new BackgroundColorSpan(0xFFFDE047),
-                        start,
-                        end,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                );
-                ssb.setSpan(
-                        new ForegroundColorSpan(0xFF0F172A),
-                        start,
-                        end,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                );
+                span.setSpan(new BackgroundColorSpan(0xFFFDE047), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                span.setSpan(new ForegroundColorSpan(0xFF111827), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
         }
-        return ssb;
+        return span;
     }
-
-    public String formatTimestamp(long millis) {
-        if (millis <= 0) return "";
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd  •  hh:mm a", new Locale("ar"));
-        return sdf.format(new Date(millis));
-    }
-
-    public String stripTxtExtension(String name) {
-        if (name == null) return "";
-        if (name.toLowerCase(Locale.ROOT).endsWith(".txt")) {
-            return name.substring(0, name.length() - 4);
-        }
-        return name;
-    }
-// ===== END PART 01/05 =====
