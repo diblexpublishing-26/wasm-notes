@@ -125,8 +125,7 @@ jobs:
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.mazwd.app">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -152,7 +151,6 @@ jobs:
           </manifest>
           EOF
 
-          # أيقونة التطبيق الخارجية الفاخرة (app_icon.xml)
           cat << 'EOF' > app/src/main/res/drawable/app_icon.xml
           <?xml version="1.0" encoding="utf-8"?>
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -181,7 +179,6 @@ jobs:
           </vector>
           EOF
 
-          # توليد الأيقونات المتجهية الـ 13 لأدوات التحرير وزر القفز السريع
           python3 - << 'EOF'
           import os
           icons = {
@@ -282,10 +279,10 @@ jobs:
           print("✅ تم دمج الأجزاء الخمسة والتحقق من سلامة الكود بنجاح 100%")
           EOF
 
-      - name: Build Signed Release APK with Gradle 8.2.2
+      - name: Build Signed Release APK with Gradle 8.4
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.2.2'
+          gradle-version: '8.4'
           arguments: assembleRelease --stacktrace
 
       - name: Upload Signed APK Artifact
